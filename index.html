@@ -72,7 +72,15 @@
   .circle.done { background: var(--done); border-color: var(--done); color: #fff; }
   .circle.pb { box-shadow: 0 0 0 5px var(--gold); }
   .circle:active { transform: scale(.97); }
-  .info { font-size: 13px; color: var(--muted); text-align: center; min-height: 34px; line-height: 1.3; }
+  .info { font-size: 13px; color: var(--muted); text-align: center; min-height: 34px; line-height: 1.3; width: 100%; }
+  .hist { list-style: none; margin: 0; padding: 0; font-size: 13px; width: 100%; max-width: 170px; margin: 0 auto; }
+  .hist li { display: flex; justify-content: space-between; gap: 6px; padding: 2px 8px; border-radius: 6px;
+    color: var(--ink); font-variant-numeric: tabular-nums; }
+  .hist li span:last-child { color: var(--muted); }
+  .hist li.pb { background: #FFF1C2; font-weight: 800; }
+  .hist li.pb span:last-child { color: #7A5A00; }
+  .hist li.sep { border-top: 1px dashed var(--line); margin-top: 2px; }
+  .hist .cap { font-size: 11px; color: var(--muted); text-align: center; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
   .cmp { font-size: 14px; font-weight: 700; text-align: center; min-height: 18px; }
   .cmp.faster { color: var(--faster); }
   .cmp.slower { color: var(--slower); }
@@ -411,6 +419,22 @@ function renderGrid() {
   updateSaveButton();
 }
 
+function histHtml(h) {
+  if (!h) return 'No times yet';
+  const recent = (h.recent || []).slice().reverse();           // newest first
+  let pbShown = false;
+  let html = '<div class="cap">Recent times</div><ul class="hist">';
+  recent.forEach(r => {
+    const isPb = !pbShown && Math.abs(r.t - h.pb) < 0.005;
+    if (isPb) pbShown = true;
+    html += `<li class="${isPb ? 'pb' : ''}"><span>${isPb ? '★ ' : ''}${esc(fmt(r.t))}</span><span>${esc(r.d)}</span></li>`;
+  });
+  if (!pbShown && h.pb != null) {
+    html += `<li class="pb sep"><span>★ PB ${esc(fmt(h.pb))}</span><span>${esc(h.pbShort || '')}</span></li>`;
+  }
+  return html + '</ul>';
+}
+
 function paint(i) {
   const s = S.swimmers[i], c = $('c' + i), h = hist(s.swimmer);
   c.classList.toggle('running', s.status === 'running');
@@ -420,10 +444,10 @@ function paint(i) {
   let pb = false;
   if (s.status === 'ready') {
     $('t' + i).textContent = '';
-    $('i' + i).innerHTML = h ? `Last ${esc(fmt(h.last))}<br>PB ${esc(fmt(h.pb))}` : 'No times yet';
+    $('i' + i).innerHTML = histHtml(h);
   } else if (s.status === 'running') {
     $('t' + i).textContent = fmtLive((performance.now() - s.start) / 1000);
-    $('i' + i).innerHTML = h ? `Last ${esc(fmt(h.last))}<br>PB ${esc(fmt(h.pb))}` : 'No times yet';
+    $('i' + i).innerHTML = histHtml(h);
   } else {
     $('t' + i).textContent = fmt(s.seconds);
     if (h) {
@@ -432,7 +456,7 @@ function paint(i) {
       else if (diff < 0) { m.classList.add('faster'); m.textContent = '▲ ' + Math.abs(diff).toFixed(2) + 's faster'; }
       else if (diff > 0) { m.classList.add('slower'); m.textContent = '▼ ' + diff.toFixed(2) + 's slower'; }
       else { m.textContent = 'Same as last time'; }
-      $('i' + i).innerHTML = `Last ${esc(fmt(h.last))}<br>PB ${esc(fmt(h.pb))}`;
+      $('i' + i).innerHTML = histHtml(h);
     } else {
       m.textContent = 'First time recorded';
       $('i' + i).textContent = '';
@@ -551,8 +575,14 @@ function applyToHistory(entries) {
     const ck = compareKey(en.eventKey, en.venue);
     S.data.history[en.swimmer] = S.data.history[en.swimmer] || {};
     const h = S.data.history[en.swimmer][ck];
-    if (!h) S.data.history[en.swimmer][ck] = { last: en.seconds, pb: en.seconds, count: 1 };
-    else { h.last = en.seconds; h.count = (h.count || 0) + 1; if (en.seconds < h.pb) h.pb = en.seconds; }
+    const p = en.date.split('-'), short = p[2] + '/' + p[1] + '/' + p[0].slice(2);
+    if (!h) S.data.history[en.swimmer][ck] = { last: en.seconds, pb: en.seconds, pbShort: short, count: 1,
+                                               recent: [{ t: en.seconds, d: short }] };
+    else {
+      h.last = en.seconds; h.count = (h.count || 0) + 1;
+      h.recent = (h.recent || []).concat([{ t: en.seconds, d: short }]).slice(-5);
+      if (en.seconds < h.pb) { h.pb = en.seconds; h.pbShort = short; }
+    }
   });
 }
 
