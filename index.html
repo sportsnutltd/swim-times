@@ -85,6 +85,13 @@
   .cmp.faster { color: var(--faster); }
   .cmp.slower { color: var(--slower); }
   .cmp.pbtxt { color: var(--gold); }
+  .circle.done.met { background: #1E8E5A; border-color: #1E8E5A; }
+  .circle.sel { box-shadow: 0 0 0 7px #8FD3C9; }
+  .std { font-size: 13px; font-weight: 700; text-align: center; min-height: 16px; color: var(--muted); }
+  .std.met { color: #1E8E5A; }
+  .hist li.met span:first-child { color: #1E8E5A; font-weight: 700; }
+  .startbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .startbar .muted { flex: 1; min-width: 200px; }
   .undo { background: var(--navy-soft); color: var(--navy); font-size: 14px; font-weight: 700;
     padding: 6px 14px; border-radius: 20px; visibility: hidden; }
   .undo.show { visibility: visible; }
@@ -166,7 +173,13 @@
       <div class="title"><b id="timeSwimTitle"></b><span class="muted" id="timeClassSub"></span></div>
       <button class="btn light" id="btnChangeSwim">Change swim</button>
     </div>
-    <p class="muted" style="margin-top:0">Tap a name as they set off. Tap again as they finish.</p>
+    <div class="startbar">
+      <button class="btn light" id="btnStartAll">Start all</button>
+      <button class="btn light" id="btnGroup">Group start</button>
+      <button class="btn" id="btnGo" style="display:none">GO</button>
+      <button class="btn light" id="btnGroupCancel" style="display:none">Cancel</button>
+      <span class="muted" id="startHint">Tap a name as they set off. Tap again as they finish.</span>
+    </div>
     <div class="grid" id="grid"></div>
     <div style="margin-top:16px"><button class="btn light" id="btnAdd">+ Add a swimmer</button></div>
     <div class="savebar">
@@ -367,16 +380,27 @@ function poolText() {
   const p = S.data.pools[venueKey(S.cls.venue)];
   return p ? p + 'm pool' : '';
 }
+function standardFor(ek) {
+  const lv = S.data.levelSwims && S.data.levelSwims[S.cls.level];
+  const st = lv && lv[ek || S.eventKey];
+  if (!st) return null;
+  return venueKey(S.cls.venue) === 'Godstowe' ? st[1] : st[0];
+}
+
 function renderSwimScreen() {
   $('swimClassTitle').textContent = S.cls.start + ' \u2013 ' + S.cls.course;
   $('swimClassSub').textContent = S.cls.venue + ' \u00b7 ' + poolText();
   const box = $('swimGroups'); box.innerHTML = '';
-  SWIM_GROUPS.forEach(([title, keys]) => {
+  const allowed = S.data.levelSwims && S.data.levelSwims[S.cls.level];
+  SWIM_GROUPS.forEach(([title, allKeys]) => {
+    const keys = allowed ? allKeys.filter(k => k in allowed) : allKeys;
+    if (!keys.length) return;
     const t = document.createElement('div'); t.className = 'section-title'; t.textContent = title;
     const g = document.createElement('div'); g.className = 'swims';
     keys.forEach(k => {
       const b = document.createElement('button'); b.className = 'pick';
-      b.textContent = S.data.events[k][0];
+      const st = standardFor(k);
+      b.innerHTML = esc(S.data.events[k][0]) + (st != null ? '<br><span class="muted">Target ' + esc(fmt(st)) + '</span>' : '');
       b.onclick = () => chooseSwim(k);
       g.appendChild(b);
     });
@@ -409,7 +433,7 @@ function renderGrid() {
     wrap.innerHTML =
       `<button class="circle" id="c${i}"><span class="nm">${esc(s.display)}</span><span class="tm" id="t${i}"></span>` +
       (s.catchup ? '<span class="tag">catch-up</span>' : '') + (s.added ? '<span class="tag">added</span>' : '') + `</button>` +
-      `<div class="cmp" id="m${i}"></div><div class="info" id="i${i}"></div>` +
+      `<div class="cmp" id="m${i}"></div><div class="std" id="s${i}"></div><div class="info" id="i${i}"></div>` +
       `<button class="undo" id="u${i}">\u21ba Undo</button>`;
     grid.appendChild(wrap);
     $('c' + i).addEventListener('pointerdown', e => { e.preventDefault(); tapCircle(i); });
@@ -417,9 +441,10 @@ function renderGrid() {
     paint(i);
   });
   updateSaveButton();
+  if (S.groupMode) setGroupMode(false); else updateGroupButtons();
 }
 
-function histHtml(h) {
+function histHtml(h, std) {
   if (!h) return 'No times yet';
   const recent = (h.recent || []).slice().reverse();           // newest first
   let pbShown = false;
@@ -427,7 +452,8 @@ function histHtml(h) {
   recent.forEach(r => {
     const isPb = !pbShown && Math.abs(r.t - h.pb) < 0.005;
     if (isPb) pbShown = true;
-    html += `<li class="${isPb ? 'pb' : ''}"><span>${isPb ? '\u2605 ' : ''}${esc(fmt(r.t))}</span><span>${esc(r.d)}</span></li>`;
+    const met = std != null && r.t <= std + 0.0001;
+    html += `<li class="${isPb ? 'pb' : ''}${met ? ' met' : ''}"><span>${isPb ? '\u2605 ' : ''}${esc(fmt(r.t))}</span><span>${esc(r.d)}</span></li>`;
   });
   if (!pbShown && h.pb != null) {
     html += `<li class="pb sep"><span>\u2605 PB ${esc(fmt(h.pb))}</span><span>${esc(h.pbShort || '')}</span></li>`;
@@ -437,6 +463,18 @@ function histHtml(h) {
 
 function paint(i) {
   const s = S.swimmers[i], c = $('c' + i), h = hist(s.swimmer);
+  const std = standardFor();
+  const sl = $('s' + i); sl.className = 'std'; sl.textContent = '';
+  c.classList.toggle('sel', !!s.sel);
+  c.classList.toggle('met', s.status === 'done' && std != null && s.seconds <= std + 0.0001);
+  if (std != null) {
+    if (s.status === 'done') {
+      if (s.seconds <= std + 0.0001) { sl.classList.add('met'); sl.textContent = '\u2713 Standard met'; }
+      else sl.textContent = (s.seconds - std).toFixed(2) + 's off standard (' + fmt(std) + ')';
+    } else {
+      sl.textContent = 'Target ' + fmt(std);
+    }
+  }
   c.classList.toggle('running', s.status === 'running');
   c.classList.toggle('done', s.status === 'done');
   $('u' + i).classList.toggle('show', s.status !== 'ready');
@@ -444,10 +482,10 @@ function paint(i) {
   let pb = false;
   if (s.status === 'ready') {
     $('t' + i).textContent = '';
-    $('i' + i).innerHTML = histHtml(h);
+    $('i' + i).innerHTML = histHtml(h, std);
   } else if (s.status === 'running') {
     $('t' + i).textContent = fmtLive((performance.now() - s.start) / 1000);
-    $('i' + i).innerHTML = histHtml(h);
+    $('i' + i).innerHTML = histHtml(h, std);
   } else {
     $('t' + i).textContent = fmt(s.seconds);
     if (h) {
@@ -456,7 +494,7 @@ function paint(i) {
       else if (diff < 0) { m.classList.add('faster'); m.textContent = '\u25b2 ' + Math.abs(diff).toFixed(2) + 's faster'; }
       else if (diff > 0) { m.classList.add('slower'); m.textContent = '\u25bc ' + diff.toFixed(2) + 's slower'; }
       else { m.textContent = 'Same as last time'; }
-      $('i' + i).innerHTML = histHtml(h);
+      $('i' + i).innerHTML = histHtml(h, std);
     } else {
       m.textContent = 'First time recorded';
       $('i' + i).textContent = '';
@@ -468,6 +506,11 @@ function paint(i) {
 function tapCircle(i) {
   const s = S.swimmers[i];
   const now = performance.now();
+  if (S.groupMode && s.status === 'ready') {        // choosing who goes off together
+    s.sel = !s.sel;
+    paint(i); updateGroupButtons();
+    return;
+  }
   if (s.status === 'ready') {
     s.status = 'running'; s.start = now;
   } else if (s.status === 'running') {
@@ -477,14 +520,50 @@ function tapCircle(i) {
   } else {
     return;                                      // finished: use Undo to change
   }
-  paint(i); updateSaveButton();
+  paint(i); updateSaveButton(); updateGroupButtons();
 }
 
 function undo(i) {
   const s = S.swimmers[i];
   s.status = 'ready'; s.start = 0; s.seconds = null;
-  paint(i); updateSaveButton();
+  paint(i); updateSaveButton(); updateGroupButtons();
 }
+
+/* ---------- starting several swimmers together ---------- */
+function setGroupMode(on) {
+  S.groupMode = on;
+  if (!on) S.swimmers.forEach(s => { s.sel = false; });
+  $('btnStartAll').style.display = on ? 'none' : '';
+  $('btnGroup').style.display = on ? 'none' : '';
+  $('btnGo').style.display = on ? '' : 'none';
+  $('btnGroupCancel').style.display = on ? '' : 'none';
+  $('startHint').textContent = on ? 'Tap the swimmers going off together, then press GO.'
+                                  : 'Tap a name as they set off. Tap again as they finish.';
+  S.swimmers.forEach((s, i) => paint(i));
+  updateGroupButtons();
+}
+function updateGroupButtons() {
+  const ready = S.swimmers.filter(s => s.status === 'ready').length;
+  const sel = S.swimmers.filter(s => s.sel && s.status === 'ready').length;
+  $('btnStartAll').disabled = ready === 0;
+  $('btnGroup').disabled = ready === 0;
+  $('btnGo').disabled = sel === 0;
+  $('btnGo').textContent = sel ? `GO (${sel})` : 'GO';
+}
+function startTogether(list) {
+  const now = performance.now();               // exactly the same start for everyone
+  list.forEach(s => { s.status = 'running'; s.start = now; s.sel = false; });
+  S.swimmers.forEach((s, i) => paint(i));
+  updateSaveButton(); updateGroupButtons();
+}
+$('btnStartAll').onclick = () => startTogether(S.swimmers.filter(s => s.status === 'ready'));
+$('btnGroup').onclick = () => setGroupMode(true);
+$('btnGroupCancel').onclick = () => setGroupMode(false);
+$('btnGo').onclick = () => {
+  const list = S.swimmers.filter(s => s.sel && s.status === 'ready');
+  setGroupMode(false);
+  startTogether(list);
+};
 
 setInterval(() => {
   if ($('scrTime').classList.contains('hidden')) return;
