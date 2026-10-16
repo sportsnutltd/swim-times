@@ -266,12 +266,12 @@ function closeModal() { $('modalBg').classList.remove('show'); }
 
 /* ---------- login ---------- */
 async function login(pw, silent) {
-  $('loginErr').textContent = silent ? '' : 'Checking…';
+  $('loginErr').textContent = silent ? '' : 'Checking\u2026';
   $('btnLogin').disabled = true;
   try {
     const j = await api({ action: 'load', pw: pw });
     if (!j.ok) {
-      $('loginErr').textContent = j.error === 'wrong-password' ? 'Wrong password – please try again.' : ('Problem: ' + j.error);
+      $('loginErr').textContent = j.error === 'wrong-password' ? 'Wrong password \u2013 please try again.' : ('Problem: ' + j.error);
       if (silent) store('sn_pw', null);
       show('scrLogin');
       return;
@@ -311,7 +311,7 @@ function setupClassScreen() {
   const teachers = new Set();
   S.data.classes.forEach(r => String(r.teachers || '').split(',').forEach(t => { t = t.trim(); if (t) teachers.add(t); }));
   const tSel = $('teacher');
-  tSel.innerHTML = '<option value="">– choose your name –</option>' +
+  tSel.innerHTML = '<option value="">\u2013 choose your name \u2013</option>' +
     [...teachers].sort().map(t => `<option>${esc(t)}</option>`).join('');
   const saved = load('sn_teacher');
   if (saved && teachers.has(saved)) tSel.value = saved;
@@ -342,8 +342,8 @@ function renderClassList() {
   list.forEach(c => {
     const b = document.createElement('button');
     b.className = 'pick';
-    b.innerHTML = `<b>${esc(c.start)} – ${esc(c.course)}</b>${esc(c.venue)} · ${c.swimmers.length} swimmers` +
-                  (all ? ` · ${esc(c.teachers)}` : '');
+    b.innerHTML = `<b>${esc(c.start)} \u2013 ${esc(c.course)}</b>${esc(c.venue)} \u00b7 ${c.swimmers.length} swimmers` +
+                  (all ? ` \u00b7 ${esc(c.teachers)}` : '');
     b.onclick = () => chooseClass(c);
     box.appendChild(b);
   });
@@ -368,8 +368,8 @@ function poolText() {
   return p ? p + 'm pool' : '';
 }
 function renderSwimScreen() {
-  $('swimClassTitle').textContent = S.cls.start + ' – ' + S.cls.course;
-  $('swimClassSub').textContent = S.cls.venue + ' · ' + poolText();
+  $('swimClassTitle').textContent = S.cls.start + ' \u2013 ' + S.cls.course;
+  $('swimClassSub').textContent = S.cls.venue + ' \u00b7 ' + poolText();
   const box = $('swimGroups'); box.innerHTML = '';
   SWIM_GROUPS.forEach(([title, keys]) => {
     const t = document.createElement('div'); t.className = 'section-title'; t.textContent = title;
@@ -391,7 +391,7 @@ function chooseSwim(k) {
   const pool = S.data.pools[venueKey(S.cls.venue)];
   const dist = ev[2] > 0 && pool ? ' (' + ev[2] * pool + 'm)' : '';
   $('timeSwimTitle').textContent = ev[0] + dist;
-  $('timeClassSub').textContent = S.cls.start + ' – ' + S.cls.course + ' · ' + S.cls.venue;
+  $('timeClassSub').textContent = S.cls.start + ' \u2013 ' + S.cls.course + ' \u00b7 ' + S.cls.venue;
   const keepAdded = S.swimmers.filter(s => s.added).map(s => ({ ...s }));
   S.swimmers = S.cls.swimmers.map(s => ({ ...s, status: 'ready', start: 0, seconds: null }))
                  .concat(keepAdded.map(s => ({ ...s, status: 'ready', start: 0, seconds: null })));
@@ -410,7 +410,7 @@ function renderGrid() {
       `<button class="circle" id="c${i}"><span class="nm">${esc(s.display)}</span><span class="tm" id="t${i}"></span>` +
       (s.catchup ? '<span class="tag">catch-up</span>' : '') + (s.added ? '<span class="tag">added</span>' : '') + `</button>` +
       `<div class="cmp" id="m${i}"></div><div class="info" id="i${i}"></div>` +
-      `<button class="undo" id="u${i}">↺ Undo</button>`;
+      `<button class="undo" id="u${i}">\u21ba Undo</button>`;
     grid.appendChild(wrap);
     $('c' + i).addEventListener('pointerdown', e => { e.preventDefault(); tapCircle(i); });
     $('u' + i).onclick = () => undo(i);
@@ -427,10 +427,10 @@ function histHtml(h) {
   recent.forEach(r => {
     const isPb = !pbShown && Math.abs(r.t - h.pb) < 0.005;
     if (isPb) pbShown = true;
-    html += `<li class="${isPb ? 'pb' : ''}"><span>${isPb ? '★ ' : ''}${esc(fmt(r.t))}</span><span>${esc(r.d)}</span></li>`;
+    html += `<li class="${isPb ? 'pb' : ''}"><span>${isPb ? '\u2605 ' : ''}${esc(fmt(r.t))}</span><span>${esc(r.d)}</span></li>`;
   });
   if (!pbShown && h.pb != null) {
-    html += `<li class="pb sep"><span>★ PB ${esc(fmt(h.pb))}</span><span>${esc(h.pbShort || '')}</span></li>`;
+    html += `<li class="pb sep"><span>\u2605 PB ${esc(fmt(h.pb))}</span><span>${esc(h.pbShort || '')}</span></li>`;
   }
   return html + '</ul>';
 }
@@ -452,9 +452,9 @@ function paint(i) {
     $('t' + i).textContent = fmt(s.seconds);
     if (h) {
       const diff = Math.round((s.seconds - h.last) * 100) / 100;
-      if (s.seconds < h.pb) { pb = true; m.classList.add('pbtxt'); m.textContent = '★ New PB!'; }
-      else if (diff < 0) { m.classList.add('faster'); m.textContent = '▲ ' + Math.abs(diff).toFixed(2) + 's faster'; }
-      else if (diff > 0) { m.classList.add('slower'); m.textContent = '▼ ' + diff.toFixed(2) + 's slower'; }
+      if (s.seconds < h.pb) { pb = true; m.classList.add('pbtxt'); m.textContent = '\u2605 New PB!'; }
+      else if (diff < 0) { m.classList.add('faster'); m.textContent = '\u25b2 ' + Math.abs(diff).toFixed(2) + 's faster'; }
+      else if (diff > 0) { m.classList.add('slower'); m.textContent = '\u25bc ' + diff.toFixed(2) + 's slower'; }
       else { m.textContent = 'Same as last time'; }
       $('i' + i).innerHTML = histHtml(h);
     } else {
@@ -545,8 +545,8 @@ $('btnSave').onclick = () => {
   const running = counts().running;
   const rows = done.map(s => `<tr><td>${esc(s.display)}</td><td class="r">${esc(fmt(s.seconds))}</td></tr>`).join('');
   modal(`Save ${done.length} time${done.length > 1 ? 's' : ''}?`,
-    `<p class="muted">${esc(S.data.events[S.eventKey][0])} · ${esc(S.cls.venue)}</p><table>${rows}</table>` +
-    (running ? `<p class="err">${running} swimmer${running > 1 ? 's are' : ' is'} still running – their time${running > 1 ? 's' : ''} won't be saved yet.</p>` : ''),
+    `<p class="muted">${esc(S.data.events[S.eventKey][0])} \u00b7 ${esc(S.cls.venue)}</p><table>${rows}</table>` +
+    (running ? `<p class="err">${running} swimmer${running > 1 ? 's are' : ' is'} still running \u2013 their time${running > 1 ? 's' : ''} won't be saved yet.</p>` : ''),
     [{ text: 'Back', cls: 'light' }, { text: 'Save', fn: () => saveDone(done) }]);
 };
 
@@ -589,7 +589,7 @@ function applyToHistory(entries) {
 async function saveDone(done) {
   const entries = buildEntries(done);
   const pbNames = done.filter(s => { const h = hist(s.swimmer); return h && s.seconds < h.pb; }).map(s => s.display);
-  $('btnSave').disabled = true; $('btnSave').textContent = 'Saving…';
+  $('btnSave').disabled = true; $('btnSave').textContent = 'Saving\u2026';
   let ok = false;
   try {
     const j = await api({ action: 'saveTimes', pw: S.pw, entries: entries });
@@ -602,9 +602,9 @@ async function saveDone(done) {
   renderGrid();
 
   if (ok) {
-    modal('Saved ✓',
+    modal('Saved \u2713',
       `<p>${entries.length} time${entries.length > 1 ? 's' : ''} saved.</p>` +
-      (pbNames.length ? `<p><b>★ New PB${pbNames.length > 1 ? 's' : ''}:</b> ${pbNames.map(esc).join(', ')}</p>` : ''),
+      (pbNames.length ? `<p><b>\u2605 New PB${pbNames.length > 1 ? 's' : ''}:</b> ${pbNames.map(esc).join(', ')}</p>` : ''),
       [{ text: 'OK' }]);
   } else {
     setPending(pendingList().concat(entries));
