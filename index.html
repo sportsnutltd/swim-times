@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Sports Nut Swim Times</title>
+<style>
+  :root {
+    --navy: #1F2A44;
+    --navy-soft: #E8EBF3;
+    --lavender: #E4DFF5;
+    --ink: #2B2B2B;
+    --muted: #6B7280;
+    --line: #D9DCE3;
+    --bg: #F6F7FB;
+    --run: #0F8F80;      /* running circle (teal) */
+    --done: #5B4B8A;     /* finished circle (purple) */
+    --gold: #E0A800;
+    --faster: #0F7A55;
+    --slower: #8A5A00;
+    --danger: #A33A3A;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; font-size: 17px; }
+  body { min-height: 100vh; overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
+  header { background: var(--navy); color: #fff; padding: 12px 16px; display: flex;
+    align-items: center; gap: 12px; position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 19px; margin: 0; font-weight: 700; flex: 1; }
+  header .sub { font-size: 14px; opacity: .85; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
+  h2 { font-size: 18px; margin: 0 0 12px; }
+  .section-title { background: var(--lavender); border-radius: 8px; padding: 6px 12px;
+    font-weight: 700; font-size: 15px; margin: 18px 0 10px; }
+  label { display: block; font-weight: 600; margin: 12px 0 6px; }
+  select, input[type=password], input[type=text] { width: 100%; font-size: 18px; padding: 12px;
+    border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); }
+  button { font: inherit; cursor: pointer; border: none; border-radius: 12px; }
+  .btn { background: var(--navy); color: #fff; padding: 14px 20px; font-weight: 700; font-size: 18px; }
+  .btn.light { background: var(--navy-soft); color: var(--navy); }
+  .btn.danger { background: #F4E3E3; color: var(--danger); }
+  .btn.wide { width: 100%; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .err { color: var(--danger); font-weight: 600; margin-top: 10px; min-height: 1.2em; }
+  .muted { color: var(--muted); font-size: 15px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .check { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-weight: 400; }
+  .check input { width: 22px; height: 22px; }
+
+  /* class + swim pickers */
+  .list { display: grid; gap: 10px; }
+  .pick { background: #fff; border: 2px solid var(--line); color: var(--ink); text-align: left;
+    padding: 14px 16px; font-size: 17px; border-radius: 12px; }
+  .pick b { display: block; font-size: 18px; }
+  .pick:active { border-color: var(--navy); background: var(--navy-soft); }
+  .swims { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+  .swims .pick { text-align: center; font-weight: 700; padding: 18px 10px; }
+
+  /* timing */
+  .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .bar .title { flex: 1; min-width: 200px; }
+  .bar .title b { font-size: 20px; display: block; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
+  .sw { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .circle { width: 150px; height: 150px; border-radius: 50%; background: #fff; border: 4px solid var(--navy);
+    color: var(--navy); display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 8px; touch-action: manipulation; }
+  .circle .nm { font-size: 22px; font-weight: 800; line-height: 1.1; word-break: break-word; }
+  .circle .tm { font-size: 24px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .circle.running { background: var(--run); border-color: var(--run); color: #fff; }
+  .circle.done { background: var(--done); border-color: var(--done); color: #fff; }
+  .circle.pb { box-shadow: 0 0 0 5px var(--gold); }
+  .circle:active { transform: scale(.97); }
+  .info { font-size: 13px; color: var(--muted); text-align: center; min-height: 34px; line-height: 1.3; }
+  .cmp { font-size: 14px; font-weight: 700; text-align: center; min-height: 18px; }
+  .cmp.faster { color: var(--faster); }
+  .cmp.slower { color: var(--slower); }
+  .cmp.pbtxt { color: var(--gold); }
+  .undo { background: var(--navy-soft); color: var(--navy); font-size: 14px; font-weight: 700;
+    padding: 6px 14px; border-radius: 20px; visibility: hidden; }
+  .undo.show { visibility: visible; }
+  .tag { font-size: 11px; font-weight: 700; background: var(--lavender); color: var(--ink);
+    border-radius: 8px; padding: 1px 6px; margin-top: 3px; }
+  .savebar { position: sticky; bottom: 0; background: rgba(246,247,251,.96); padding: 12px 0;
+    display: flex; gap: 10px; border-top: 1px solid var(--line); margin-top: 18px; }
+  .savebar .btn { flex: 1; }
+  .banner { background: #FFF6DB; border: 1px solid #EBD38A; border-radius: 10px; padding: 10px 14px;
+    margin-bottom: 14px; display: none; align-items: center; gap: 10px; }
+  .banner.show { display: flex; }
+  .banner span { flex: 1; }
+
+  /* modal */
+  .modal-bg { position: fixed; inset: 0; background: rgba(20,24,35,.55); display: none;
+    align-items: center; justify-content: center; z-index: 20; padding: 16px; }
+  .modal-bg.show { display: flex; }
+  .modal { background: #fff; border-radius: 16px; padding: 20px; width: 100%; max-width: 520px;
+    max-height: 90vh; overflow: auto; }
+  .modal h3 { margin: 0 0 12px; font-size: 20px; }
+  .modal table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+  .modal td { padding: 8px 4px; border-bottom: 1px solid var(--line); }
+  .modal td.r { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .modal .row .btn { flex: 1; }
+  .hidden { display: none !important; }
+  @media (max-width: 520px) {
+    .circle { width: 128px; height: 128px; }
+    .grid { grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); }
+    .circle .nm { font-size: 19px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Sports Nut Swim Times</h1>
+  <span class="sub" id="hdrSub"></span>
+</header>
+
+<main>
+  <!-- LOGIN -->
+  <section id="scrLogin" class="card">
+    <h2>Teacher login</h2>
+    <label for="pw">Password</label>
+    <input type="password" id="pw" autocomplete="current-password">
+    <label class="check"><input type="checkbox" id="remember" checked> Remember on this tablet</label>
+    <div class="err" id="loginErr"></div>
+    <button class="btn wide" id="btnLogin">Log in</button>
+  </section>
+
+  <!-- CHOOSE CLASS -->
+  <section id="scrClass" class="card hidden">
+    <h2>Choose your class</h2>
+    <label for="teacher">Your name</label>
+    <select id="teacher"></select>
+    <label for="day">Day</label>
+    <select id="day"></select>
+    <label class="check"><input type="checkbox" id="allClasses"> Show every L5+ class on this day (for cover)</label>
+    <div class="section-title">Classes</div>
+    <div class="list" id="classList"></div>
+    <p class="muted" id="listUpdated"></p>
+  </section>
+
+  <!-- CHOOSE SWIM -->
+  <section id="scrSwim" class="card hidden">
+    <div class="bar">
+      <div class="title"><b id="swimClassTitle"></b><span class="muted" id="swimClassSub"></span></div>
+      <button class="btn light" id="btnBackClass">Change class</button>
+    </div>
+    <div id="swimGroups"></div>
+  </section>
+
+  <!-- TIMING -->
+  <section id="scrTime" class="hidden">
+    <div class="banner" id="pendingBanner">
+      <span id="pendingText"></span>
+      <button class="btn light" id="btnSendPending">Send now</button>
+    </div>
+    <div class="bar">
+      <div class="title"><b id="timeSwimTitle"></b><span class="muted" id="timeClassSub"></span></div>
+      <button class="btn light" id="btnChangeSwim">Change swim</button>
+    </div>
+    <p class="muted" style="margin-top:0">Tap a name as they set off. Tap again as they finish.</p>
+    <div class="grid" id="grid"></div>
+    <div style="margin-top:16px"><button class="btn light" id="btnAdd">+ Add a swimmer</button></div>
+    <div class="savebar">
+      <button class="btn" id="btnSave" disabled>Save times</button>
+    </div>
+  </section>
+</main>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h3 id="mTitle"></h3>
+    <div id="mBody"></div>
+    <div class="row" id="mBtns"></div>
+  </div>
+</div>
+
+<script>
+/* ===================== SETTINGS ===================== */
+const API_URL = 'https://script.google.com/macros/s/AKfycbz4yH7CrOxCxb-ki6MFBwqemqRXJabfyCK3S9oi7Icts3YhKjnUgO2HA7Z2FbkhUVxPCw/exec';
+/* ==================================================== */
+
+const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const SWIM_GROUPS = [
+  ['One length',   ['FC1','BC1','BR1','FLY1']],
+  ['Two lengths',  ['FC2','BC2','BR2']],
+  ['Longer swims', ['FC3','FC100','IM100','FC400']],
+];
+const MIN_SWIM_SECONDS = 1.0;   // a second tap sooner than this is ignored (stops double taps)
+
+const S = {                     // app state
+  pw: '', data: null, cls: null, eventKey: null,
+  swimmers: [],                 // [{swimmer, display, catchup, added, status, start, seconds}]
+};
+
+/* ---------- small helpers ---------- */
+const $ = id => document.getElementById(id);
+function store(k, v) { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }
+function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function show(id) { ['scrLogin','scrClass','scrSwim','scrTime'].forEach(s => $(s).classList.toggle('hidden', s !== id)); window.scrollTo(0,0); }
+function fmt(sec) {
+  if (sec == null || isNaN(sec)) return '';
+  sec = Math.round(sec * 100) / 100;
+  if (sec < 60) return sec.toFixed(2);
+  const m = Math.floor(sec / 60); let s = (sec - m * 60).toFixed(2);
+  if (s.length < 5) s = '0' + s;
+  return m + ':' + s;
+}
+function fmtLive(sec) {          // tenths while running
+  if (sec < 60) return sec.toFixed(1);
+  const m = Math.floor(sec / 60); let s = (sec - m * 60).toFixed(1);
+  if (s.length < 4) s = '0' + s;
+  return m + ':' + s;
+}
+function todayISO() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function newId() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+}
+function venueKey(v) { v = String(v||'').toLowerCase(); return v.includes('davenies') ? 'Davenies' : v.includes('godstowe') ? 'Godstowe' : v; }
+function compareKey(ek, venue) {
+  const ev = S.data.events[ek];
+  return ev && ev[2] > 0 ? ek + '|' + venueKey(venue) : ek;
+}
+function hist(swimmer) {
+  const h = (S.data.history[swimmer] || {})[compareKey(S.eventKey, S.cls.venue)];
+  return h || null;
+}
+
+/* ---------- talking to the Google Sheet ---------- */
+async function api(body) {
+  const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(body) });
+  const j = await res.json();
+  return j;
+}
+
+/* ---------- modal ---------- */
+function modal(title, html, buttons) {
+  $('mTitle').textContent = title;
+  $('mBody').innerHTML = html;
+  const box = $('mBtns'); box.innerHTML = '';
+  buttons.forEach(b => {
+    const el = document.createElement('button');
+    el.className = 'btn ' + (b.cls || '');
+    el.textContent = b.text;
+    el.onclick = () => { if (!b.keepOpen) closeModal(); b.fn && b.fn(); };
+    box.appendChild(el);
+  });
+  $('modalBg').classList.add('show');
+}
+function closeModal() { $('modalBg').classList.remove('show'); }
+
+/* ---------- login ---------- */
+async function login(pw, silent) {
+  $('loginErr').textContent = silent ? '' : 'Checking…';
+  $('btnLogin').disabled = true;
+  try {
+    const j = await api({ action: 'load', pw: pw });
+    if (!j.ok) {
+      $('loginErr').textContent = j.error === 'wrong-password' ? 'Wrong password – please try again.' : ('Problem: ' + j.error);
+      if (silent) store('sn_pw', null);
+      show('scrLogin');
+      return;
+    }
+    S.pw = pw; S.data = j;
+    if ($('remember').checked) store('sn_pw', pw);
+    $('loginErr').textContent = '';
+    setupClassScreen();
+    show('scrClass');
+    sendPending();
+  } catch (e) {
+    $('loginErr').textContent = 'Couldn\'t connect. Check the Wi-Fi and try again.';
+    show('scrLogin');
+  } finally {
+    $('btnLogin').disabled = false;
+  }
+}
+$('btnLogin').onclick = () => { const pw = $('pw').value.trim(); if (pw) login(pw, false); };
+$('pw').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnLogin').click(); });
+
+/* ---------- choose class ---------- */
+function classKey(c) { return [c.venue, c.day, c.start, c.course, c.teachers].join('|'); }
+
+function groupClasses() {
+  const map = {};
+  S.data.classes.forEach(r => {
+    const k = classKey(r);
+    if (!map[k]) map[k] = { venue: r.venue, day: r.day, start: r.start, end: r.end, level: r.level,
+                            course: r.course, teachers: r.teachers, swimmers: [] };
+    map[k].swimmers.push({ swimmer: r.swimmer, display: r.display || r.swimmer.split(' ')[0], catchup: r.catchup });
+  });
+  return Object.values(map).sort((a, b) =>
+    DAYS.indexOf(a.day) - DAYS.indexOf(b.day) || a.start.localeCompare(b.start) || a.venue.localeCompare(b.venue));
+}
+
+function setupClassScreen() {
+  const teachers = new Set();
+  S.data.classes.forEach(r => String(r.teachers || '').split(',').forEach(t => { t = t.trim(); if (t) teachers.add(t); }));
+  const tSel = $('teacher');
+  tSel.innerHTML = '<option value="">– choose your name –</option>' +
+    [...teachers].sort().map(t => `<option>${esc(t)}</option>`).join('');
+  const saved = load('sn_teacher');
+  if (saved && teachers.has(saved)) tSel.value = saved;
+
+  const dSel = $('day');
+  dSel.innerHTML = DAYS.map(d => `<option>${d}</option>`).join('');
+  const jsDay = new Date().getDay();               // 0 = Sunday
+  dSel.value = DAYS[(jsDay + 6) % 7];
+
+  const fd = S.data.classes.length ? S.data.classes[0].fileDate : '';
+  $('listUpdated').textContent = fd ? 'Class lists from the Swimphony file dated ' + fd + '.' : '';
+  renderClassList();
+}
+
+function renderClassList() {
+  const teacher = $('teacher').value, day = $('day').value, all = $('allClasses').checked;
+  store('sn_teacher', teacher);
+  const box = $('classList');
+  if (!teacher && !all) { box.innerHTML = '<p class="muted">Choose your name to see your classes.</p>'; return; }
+  const list = groupClasses().filter(c => c.day === day &&
+    (all || String(c.teachers).split(',').map(t => t.trim()).includes(teacher)));
+  if (!list.length) {
+    box.innerHTML = '<p class="muted">No L5+ classes found' + (all ? '' : ' for you') + ' on ' + esc(day) +
+                    '.' + (all ? '' : ' Tick the box above if you\'re covering a class.') + '</p>';
+    return;
+  }
+  box.innerHTML = '';
+  list.forEach(c => {
+    const b = document.createElement('button');
+    b.className = 'pick';
+    b.innerHTML = `<b>${esc(c.start)} – ${esc(c.course)}</b>${esc(c.venue)} · ${c.swimmers.length} swimmers` +
+                  (all ? ` · ${esc(c.teachers)}` : '');
+    b.onclick = () => chooseClass(c);
+    box.appendChild(b);
+  });
+}
+['teacher','day','allClasses'].forEach(id => $(id).addEventListener('change', renderClassList));
+
+function chooseClass(c) {
+  if (!$('teacher').value) {
+    modal('Choose your name', '<p>Please choose your name first, so the times are saved under the right teacher.</p>', [{ text: 'OK' }]);
+    return;
+  }
+  S.cls = c;
+  S.swimmers = [];                                 // don't carry added swimmers into another class
+  $('hdrSub').textContent = $('teacher').value;
+  renderSwimScreen();
+  show('scrSwim');
+}
+
+/* ---------- choose swim ---------- */
+function poolText() {
+  const p = S.data.pools[venueKey(S.cls.venue)];
+  return p ? p + 'm pool' : '';
+}
+function renderSwimScreen() {
+  $('swimClassTitle').textContent = S.cls.start + ' – ' + S.cls.course;
+  $('swimClassSub').textContent = S.cls.venue + ' · ' + poolText();
+  const box = $('swimGroups'); box.innerHTML = '';
+  SWIM_GROUPS.forEach(([title, keys]) => {
+    const t = document.createElement('div'); t.className = 'section-title'; t.textContent = title;
+    const g = document.createElement('div'); g.className = 'swims';
+    keys.forEach(k => {
+      const b = document.createElement('button'); b.className = 'pick';
+      b.textContent = S.data.events[k][0];
+      b.onclick = () => chooseSwim(k);
+      g.appendChild(b);
+    });
+    box.appendChild(t); box.appendChild(g);
+  });
+}
+$('btnBackClass').onclick = () => { $('hdrSub').textContent = ''; show('scrClass'); };
+
+function chooseSwim(k) {
+  S.eventKey = k;
+  const ev = S.data.events[k];
+  const pool = S.data.pools[venueKey(S.cls.venue)];
+  const dist = ev[2] > 0 && pool ? ' (' + ev[2] * pool + 'm)' : '';
+  $('timeSwimTitle').textContent = ev[0] + dist;
+  $('timeClassSub').textContent = S.cls.start + ' – ' + S.cls.course + ' · ' + S.cls.venue;
+  const keepAdded = S.swimmers.filter(s => s.added).map(s => ({ ...s }));
+  S.swimmers = S.cls.swimmers.map(s => ({ ...s, status: 'ready', start: 0, seconds: null }))
+                 .concat(keepAdded.map(s => ({ ...s, status: 'ready', start: 0, seconds: null })));
+  renderGrid();
+  show('scrTime');
+  keepAwake();
+  updatePendingBanner();
+}
+
+/* ---------- timing ---------- */
+function renderGrid() {
+  const grid = $('grid'); grid.innerHTML = '';
+  S.swimmers.forEach((s, i) => {
+    const wrap = document.createElement('div'); wrap.className = 'sw';
+    wrap.innerHTML =
+      `<button class="circle" id="c${i}"><span class="nm">${esc(s.display)}</span><span class="tm" id="t${i}"></span>` +
+      (s.catchup ? '<span class="tag">catch-up</span>' : '') + (s.added ? '<span class="tag">added</span>' : '') + `</button>` +
+      `<div class="cmp" id="m${i}"></div><div class="info" id="i${i}"></div>` +
+      `<button class="undo" id="u${i}">↺ Undo</button>`;
+    grid.appendChild(wrap);
+    $('c' + i).addEventListener('pointerdown', e => { e.preventDefault(); tapCircle(i); });
+    $('u' + i).onclick = () => undo(i);
+    paint(i);
+  });
+  updateSaveButton();
+}
+
+function paint(i) {
+  const s = S.swimmers[i], c = $('c' + i), h = hist(s.swimmer);
+  c.classList.toggle('running', s.status === 'running');
+  c.classList.toggle('done', s.status === 'done');
+  $('u' + i).classList.toggle('show', s.status !== 'ready');
+  const m = $('m' + i); m.className = 'cmp'; m.textContent = '';
+  let pb = false;
+  if (s.status === 'ready') {
+    $('t' + i).textContent = '';
+    $('i' + i).innerHTML = h ? `Last ${esc(fmt(h.last))}<br>PB ${esc(fmt(h.pb))}` : 'No times yet';
+  } else if (s.status === 'running') {
+    $('t' + i).textContent = fmtLive((performance.now() - s.start) / 1000);
+    $('i' + i).innerHTML = h ? `Last ${esc(fmt(h.last))}<br>PB ${esc(fmt(h.pb))}` : 'No times yet';
+  } else {
+    $('t' + i).textContent = fmt(s.seconds);
+    if (h) {
+      const diff = Math.round((s.seconds - h.last) * 100) / 100;
+      if (s.seconds < h.pb) { pb = true; m.classList.add('pbtxt'); m.textContent = '★ New PB!'; }
+      else if (diff < 0) { m.classList.add('faster'); m.textContent = '▲ ' + Math.abs(diff).toFixed(2) + 's faster'; }
+      else if (diff > 0) { m.classList.add('slower'); m.textContent = '▼ ' + diff.toFixed(2) + 's slower'; }
+      else { m.textContent = 'Same as last time'; }
+      $('i' + i).innerHTML = `Last ${esc(fmt(h.last))}<br>PB ${esc(fmt(h.pb))}`;
+    } else {
+      m.textContent = 'First time recorded';
+      $('i' + i).textContent = '';
+    }
+  }
+  c.classList.toggle('pb', pb);
+}
+
+function tapCircle(i) {
+  const s = S.swimmers[i];
+  const now = performance.now();
+  if (s.status === 'ready') {
+    s.status = 'running'; s.start = now;
+  } else if (s.status === 'running') {
+    const secs = (now - s.start) / 1000;
+    if (secs < MIN_SWIM_SECONDS) return;          // ignore an accidental double tap
+    s.status = 'done'; s.seconds = Math.round(secs * 100) / 100;
+  } else {
+    return;                                      // finished: use Undo to change
+  }
+  paint(i); updateSaveButton();
+}
+
+function undo(i) {
+  const s = S.swimmers[i];
+  s.status = 'ready'; s.start = 0; s.seconds = null;
+  paint(i); updateSaveButton();
+}
+
+setInterval(() => {
+  if ($('scrTime').classList.contains('hidden')) return;
+  S.swimmers.forEach((s, i) => {
+    if (s.status === 'running') { const t = $('t' + i); if (t) t.textContent = fmtLive((performance.now() - s.start) / 1000); }
+  });
+}, 50);
+
+function counts() {
+  return {
+    done: S.swimmers.filter(s => s.status === 'done').length,
+    running: S.swimmers.filter(s => s.status === 'running').length,
+  };
+}
+function updateSaveButton() {
+  const c = counts();
+  $('btnSave').disabled = c.done === 0;
+  $('btnSave').textContent = c.done ? `Save ${c.done} time${c.done > 1 ? 's' : ''}` : 'Save times';
+}
+
+/* ---------- add a swimmer not on the list ---------- */
+$('btnAdd').onclick = () => {
+  modal('Add a swimmer',
+    '<p class="muted">For a swimmer who isn\'t on the list (e.g. a catch-up). Please type their first name and surname.</p>' +
+    '<input type="text" id="addName" autocomplete="off">' +
+    '<div class="err" id="addErr"></div>',
+    [{ text: 'Cancel', cls: 'light' },
+     { text: 'Add', keepOpen: true, fn: () => {
+        const name = $('addName').value.trim().replace(/\s+/g, ' ');
+        if (name.split(' ').length < 2) { $('addErr').textContent = 'Please type a first name and surname.'; return; }
+        if (S.swimmers.some(s => s.swimmer.toLowerCase() === name.toLowerCase())) { $('addErr').textContent = 'That swimmer is already on the list.'; return; }
+        const parts = name.split(' ');
+        S.swimmers.push({ swimmer: name, display: parts[0] + ' ' + parts[parts.length - 1][0], added: true,
+                          status: 'ready', start: 0, seconds: null });
+        closeModal(); renderGrid();
+     }}]);
+  setTimeout(() => { const el = $('addName'); if (el) el.focus(); }, 50);
+};
+
+/* ---------- change swim / leave with unsaved times ---------- */
+$('btnChangeSwim').onclick = () => {
+  const c = counts();
+  if (c.done || c.running) {
+    const bits = [];
+    if (c.done) bits.push(`${c.done} finished time${c.done === 1 ? '' : 's'} not saved`);
+    if (c.running) bits.push(`${c.running} swimmer${c.running === 1 ? '' : 's'} still being timed`);
+    modal('Times not saved', `<p>You have ${bits.join(' and ')}.</p>`,
+      [{ text: 'Go back', cls: 'light' },
+       { text: 'Discard them', cls: 'danger', fn: () => { S.swimmers.forEach(s => { s.status = 'ready'; s.seconds = null; }); show('scrSwim'); } }]);
+    return;
+  }
+  show('scrSwim');
+};
+
+/* ---------- saving ---------- */
+$('btnSave').onclick = () => {
+  const done = S.swimmers.filter(s => s.status === 'done');
+  const running = counts().running;
+  const rows = done.map(s => `<tr><td>${esc(s.display)}</td><td class="r">${esc(fmt(s.seconds))}</td></tr>`).join('');
+  modal(`Save ${done.length} time${done.length > 1 ? 's' : ''}?`,
+    `<p class="muted">${esc(S.data.events[S.eventKey][0])} · ${esc(S.cls.venue)}</p><table>${rows}</table>` +
+    (running ? `<p class="err">${running} swimmer${running > 1 ? 's are' : ' is'} still running – their time${running > 1 ? 's' : ''} won't be saved yet.</p>` : ''),
+    [{ text: 'Back', cls: 'light' }, { text: 'Save', fn: () => saveDone(done) }]);
+};
+
+function buildEntries(done) {
+  const date = todayISO();
+  const dayName = DAYS[(new Date().getDay() + 6) % 7];
+  return done.map(s => ({
+    id: newId(), date: date, venue: S.cls.venue, day: dayName, classTime: S.cls.start,
+    level: S.cls.level, course: S.cls.course, teacher: $('teacher').value,
+    swimmer: s.swimmer, eventKey: S.eventKey, seconds: s.seconds,
+    notes: s.added ? 'Added on poolside' : (s.catchup ? 'Catch-up' : ''),
+  }));
+}
+
+function pendingList() { try { return JSON.parse(load('sn_pending') || '[]'); } catch (e) { return []; } }
+function setPending(list) { store('sn_pending', list.length ? JSON.stringify(list) : null); updatePendingBanner(); }
+function updatePendingBanner() {
+  const n = pendingList().length;
+  $('pendingBanner').classList.toggle('show', n > 0);
+  $('pendingText').textContent = n ? `${n} time${n > 1 ? 's are' : ' is'} stored on this tablet waiting to be sent.` : '';
+}
+
+// Applies saved times to the on-screen history so Last / PB update straight away
+function applyToHistory(entries) {
+  entries.forEach(en => {
+    const ck = compareKey(en.eventKey, en.venue);
+    S.data.history[en.swimmer] = S.data.history[en.swimmer] || {};
+    const h = S.data.history[en.swimmer][ck];
+    if (!h) S.data.history[en.swimmer][ck] = { last: en.seconds, pb: en.seconds, count: 1 };
+    else { h.last = en.seconds; h.count = (h.count || 0) + 1; if (en.seconds < h.pb) h.pb = en.seconds; }
+  });
+}
+
+async function saveDone(done) {
+  const entries = buildEntries(done);
+  const pbNames = done.filter(s => { const h = hist(s.swimmer); return h && s.seconds < h.pb; }).map(s => s.display);
+  $('btnSave').disabled = true; $('btnSave').textContent = 'Saving…';
+  let ok = false;
+  try {
+    const j = await api({ action: 'saveTimes', pw: S.pw, entries: entries });
+    ok = !!j.ok;
+    if (!ok && j.error === 'wrong-password') { store('sn_pw', null); }
+  } catch (e) { ok = false; }
+
+  applyToHistory(entries);
+  done.forEach(s => { s.status = 'ready'; s.seconds = null; });
+  renderGrid();
+
+  if (ok) {
+    modal('Saved ✓',
+      `<p>${entries.length} time${entries.length > 1 ? 's' : ''} saved.</p>` +
+      (pbNames.length ? `<p><b>★ New PB${pbNames.length > 1 ? 's' : ''}:</b> ${pbNames.map(esc).join(', ')}</p>` : ''),
+      [{ text: 'OK' }]);
+  } else {
+    setPending(pendingList().concat(entries));
+    modal('Not sent yet',
+      '<p>The times couldn\'t be sent just now, but they\'re <b>stored on this tablet</b> and will be sent automatically when the connection is back.</p>',
+      [{ text: 'OK' }]);
+  }
+}
+
+async function sendPending() {
+  const list = pendingList();
+  if (!list.length || !S.pw) { updatePendingBanner(); return; }
+  try {
+    const j = await api({ action: 'saveTimes', pw: S.pw, entries: list });
+    if (j.ok) setPending([]);
+  } catch (e) { /* try again later */ }
+  updatePendingBanner();
+}
+$('btnSendPending').onclick = sendPending;
+setInterval(sendPending, 60000);
+window.addEventListener('online', sendPending);
+
+/* ---------- keep the screen awake while timing ---------- */
+let wakeLock = null;
+async function keepAwake() {
+  try { if ('wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => wakeLock = null); } } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !$('scrTime').classList.contains('hidden')) keepAwake(); });
+
+/* ---------- warn before closing with unsaved times ---------- */
+window.addEventListener('beforeunload', e => {
+  const c = counts();
+  if (c.done || c.running) { e.preventDefault(); e.returnValue = ''; }
+});
+
+/* ---------- start ---------- */
+(function start() {
+  if (API_URL.indexOf('PASTE') === 0) {
+    $('loginErr').textContent = 'Set-up not finished: the web app address hasn\'t been added to this page yet.';
+    $('btnLogin').disabled = true;
+    return;
+  }
+  const saved = load('sn_pw');
+  if (saved) { $('pw').value = saved; login(saved, true); }
+  updatePendingBanner();
+})();
+</script>
+</body>
+</html>
