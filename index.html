@@ -153,7 +153,7 @@
     <select id="teacher"></select>
     <label for="day">Day</label>
     <select id="day"></select>
-    <label class="check"><input type="checkbox" id="allClasses"> Show every L5+ class on this day (for cover)</label>
+    <label class="check"><input type="checkbox" id="allClasses"> Show every L4+ class on this day (for cover)</label>
     <div class="section-title">Classes</div>
     <div class="list" id="classList"></div>
     <p class="muted" id="listUpdated"></p>
@@ -359,7 +359,7 @@ function renderClassList() {
   const list = groupClasses().filter(c => c.day === day &&
     (all || String(c.teachers).split(',').map(t => t.trim()).includes(teacher)));
   if (!list.length) {
-    box.innerHTML = '<p class="muted">No L5+ classes found' + (all ? '' : ' for you') + ' on ' + esc(day) +
+    box.innerHTML = '<p class="muted">No L4+ classes found' + (all ? '' : ' for you') + ' on ' + esc(day) +
                     '.' + (all ? '' : ' Tick the box above if you\'re covering a class.') + '</p>';
     return;
   }
