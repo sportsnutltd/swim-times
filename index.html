@@ -215,6 +215,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbz4yH7CrOxCxb-ki6MFBwqe
 
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const SWIM_GROUPS = [
+  ['Boom & Back',  ['BB']],
   ['One length',   ['FC1','BC1','BR1','FLY1']],
   ['Two lengths',  ['FC2','BC2','BR2']],
   ['Longer swims', ['FC3','FC100','IM100','FC400']],
@@ -258,7 +259,7 @@ function newId() {
 function venueKey(v) { v = String(v||'').toLowerCase(); return v.includes('davenies') ? 'Davenies' : v.includes('godstowe') ? 'Godstowe' : v; }
 function compareKey(ek, venue) {
   const ev = S.data.events[ek];
-  return ev && ev[2] > 0 ? ek + '|' + venueKey(venue) : ek;
+  return ev && (ev[2] > 0 || ev[4] === true) ? ek + '|' + venueKey(venue) : ek;
 }
 function hist(swimmer) {
   const h = (S.data.history[swimmer] || {})[compareKey(S.eventKey, S.cls.venue)];
@@ -597,20 +598,61 @@ function updateSaveButton() {
 
 /* ---------- add a swimmer not on the list ---------- */
 $('btnAdd').onclick = () => {
+  // Every swimmer on the Swimphony class lists (L4 and above, both venues)
+  const known = {};
+  S.data.classes.forEach(r => {
+    if (!known[r.swimmer]) known[r.swimmer] = `${r.level} \u00b7 ${r.day.slice(0, 3)} ${r.start} \u00b7 ${r.venue}`;
+  });
+  const names = Object.keys(known).sort();
+  let warned = '';
+
+  function addSwimmer(name, isKnown) {
+    if (S.swimmers.some(s => s.swimmer.toLowerCase() === name.toLowerCase())) {
+      $('addErr').textContent = 'That swimmer is already on the list.'; return;
+    }
+    const parts = name.split(' ');
+    S.swimmers.push({ swimmer: name, display: parts[0] + ' ' + parts[parts.length - 1][0], added: true,
+                      notListed: !isKnown, status: 'ready', start: 0, seconds: null });
+    closeModal(); renderGrid();
+  }
+
+  function showMatches() {
+    const q = $('addName').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const box = $('addList'); box.innerHTML = ''; warned = '';
+    if (!q.length || q.join('').length < 2) return;
+    const hits = names.filter(n => {
+      const words = n.toLowerCase().split(/[\s\-]+/);
+      return q.every(w => words.some(x => x.startsWith(w)));
+    }).slice(0, 8);
+    hits.forEach(n => {
+      const b = document.createElement('button');
+      b.className = 'pick';
+      b.innerHTML = `<b>${esc(n)}</b><span class="muted">${esc(known[n])}</span>`;
+      b.onclick = () => addSwimmer(n, true);
+      box.appendChild(b);
+    });
+    if (!hits.length) box.innerHTML = '<p class="muted">No swimmers found with that name.</p>';
+  }
+
   modal('Add a swimmer',
-    '<p class="muted">For a swimmer who isn\'t on the list (e.g. a catch-up). Please type their first name and surname.</p>' +
-    '<input type="text" id="addName" autocomplete="off">' +
+    '<p class="muted">Start typing their first name or surname, then tap them in the list.</p>' +
+    '<input type="text" id="addName" autocomplete="off" placeholder="e.g. Sam or Taylor">' +
+    '<div class="list" id="addList" style="margin-top:10px"></div>' +
     '<div class="err" id="addErr"></div>',
     [{ text: 'Cancel', cls: 'light' },
-     { text: 'Add', keepOpen: true, fn: () => {
+     { text: 'Add as typed', cls: 'light', keepOpen: true, fn: () => {
         const name = $('addName').value.trim().replace(/\s+/g, ' ');
-        if (name.split(' ').length < 2) { $('addErr').textContent = 'Please type a first name and surname.'; return; }
-        if (S.swimmers.some(s => s.swimmer.toLowerCase() === name.toLowerCase())) { $('addErr').textContent = 'That swimmer is already on the list.'; return; }
-        const parts = name.split(' ');
-        S.swimmers.push({ swimmer: name, display: parts[0] + ' ' + parts[parts.length - 1][0], added: true,
-                          status: 'ready', start: 0, seconds: null });
-        closeModal(); renderGrid();
+        if (name.split(' ').length < 2) { $('addErr').textContent = 'Please type a first name and surname, or tap a name in the list.'; return; }
+        const match = names.find(n => n.toLowerCase() === name.toLowerCase());
+        if (match) { addSwimmer(match, true); return; }
+        if (warned !== name) {
+          warned = name;
+          $('addErr').textContent = 'That name isn\'t on the Swimphony list. Check the spelling, or press "Add as typed" again to add them anyway.';
+          return;
+        }
+        addSwimmer(name, false);
      }}]);
+  $('addName').addEventListener('input', showMatches);
   setTimeout(() => { const el = $('addName'); if (el) el.focus(); }, 50);
 };
 
@@ -647,7 +689,8 @@ function buildEntries(done) {
     id: newId(), date: date, venue: S.cls.venue, day: dayName, classTime: S.cls.start,
     level: S.cls.level, course: S.cls.course, teacher: $('teacher').value,
     swimmer: s.swimmer, eventKey: S.eventKey, seconds: s.seconds,
-    notes: s.added ? 'Added on poolside' : (s.catchup ? 'Catch-up' : ''),
+    notes: s.added ? (s.notListed ? 'Added on poolside - name not on Swimphony list' : 'Added on poolside')
+                   : (s.catchup ? 'Catch-up' : ''),
   }));
 }
 
