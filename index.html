@@ -318,15 +318,30 @@ $('btnLogin').onclick = () => { const pw = $('pw').value.trim(); if (pw) login(p
 $('pw').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnLogin').click(); });
 
 /* ---------- choose class ---------- */
-function classKey(c) { return [c.venue, c.day, c.start, c.course, c.teachers].join('|'); }
+// Swimphony sometimes lists the same two teachers in a different order for different
+// swimmers (e.g. when one is covering), so teacher names are sorted before comparing.
+function teacherList(t) { return String(t || '').split(',').map(x => x.trim()).filter(Boolean).sort().join(', '); }
+function classKey(c) { return [c.venue, c.day, c.start, c.course, teacherList(c.teachers)].join('|'); }
 
 function groupClasses() {
   const map = {};
   S.data.classes.forEach(r => {
     const k = classKey(r);
     if (!map[k]) map[k] = { venue: r.venue, day: r.day, start: r.start, end: r.end, level: r.level,
-                            course: r.course, teachers: r.teachers, swimmers: [] };
+                            course: r.course, teachers: teacherList(r.teachers), swimmers: [] };
+    if (map[k].swimmers.some(x => x.swimmer === r.swimmer)) return;   // listed twice
     map[k].swimmers.push({ swimmer: r.swimmer, display: r.display || r.swimmer.split(' ')[0], catchup: r.catchup });
+  });
+  // If merging made two swimmers share the same name on screen, add surname initials
+  Object.values(map).forEach(c => {
+    const count = {};
+    c.swimmers.forEach(x => { count[x.display] = (count[x.display] || 0) + 1; });
+    c.swimmers.forEach(x => {
+      if (count[x.display] > 1) {
+        const p = x.swimmer.split(' ');
+        x.display = p[0] + ' ' + (p.length > 1 ? p[p.length - 1][0] : '');
+      }
+    });
   });
   return Object.values(map).sort((a, b) =>
     DAYS.indexOf(a.day) - DAYS.indexOf(b.day) || a.start.localeCompare(b.start) || a.venue.localeCompare(b.venue));
