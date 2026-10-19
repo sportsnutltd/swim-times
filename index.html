@@ -160,11 +160,14 @@
   </section>
 
   <!-- CHOOSE CLASS -->
-  <section id="scrClass" class="card hidden">
-    <div class="bar" style="margin-bottom:4px">
-      <h2 class="title" style="margin:0">Choose your class</h2>
-      <button class="btn lookup" id="btnLookup1">&#x1F50D; Look up a swimmer</button>
+  <section id="scrClass" class="hidden">
+    <div class="card">
+      <h2 style="margin-top:0">Look up a swimmer</h2>
+      <p class="muted" style="margin-top:0">See every time a swimmer has recorded, their PBs and progress.</p>
+      <button class="btn lookup wide" id="btnLookup1">&#x1F50D; Look up a swimmer</button>
     </div>
+    <div class="card">
+    <h2>Time a class</h2>
     <label for="teacher">Your name</label>
     <select id="teacher"></select>
     <label for="day">Day</label>
@@ -173,6 +176,7 @@
     <div class="section-title">Classes</div>
     <div class="list" id="classList"></div>
     <p class="muted" id="listUpdated"></p>
+    </div>
   </section>
 
   <!-- CHOOSE SWIM -->
