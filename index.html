@@ -90,6 +90,19 @@
   .std { font-size: 13px; font-weight: 700; text-align: center; min-height: 16px; color: var(--muted); }
   .std.met { color: #1E8E5A; }
   .hist li.met span:first-child { color: #1E8E5A; font-weight: 700; }
+  .btn.lookup { background: #4B3F9E; color: #fff; font-size: 16px; padding: 12px 16px; }
+  .swimcard { border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+  .swimcard > button { width: 100%; background: #fff; border: none; text-align: left; padding: 12px 14px;
+    display: flex; gap: 10px; align-items: center; color: var(--ink); }
+  .swimcard > button .nm2 { flex: 1; font-weight: 700; }
+  .swimcard > button .nm2 small { display: block; font-weight: 400; color: var(--muted); }
+  .swimcard .pbpill { background: #FFF1C2; border-radius: 8px; padding: 4px 8px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .swimcard .detail { padding: 4px 14px 14px; border-top: 1px solid var(--line); background: #FBFBFD; }
+  .swimcard table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 8px; }
+  .swimcard td { padding: 6px 4px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  .swimcard tr.pb td { background: #FFF1C2; font-weight: 800; }
+  .swimcard td.met { color: #1E8E5A; font-weight: 700; }
+  .chartcap { font-size: 13px; color: var(--muted); text-align: center; min-height: 18px; }
   .startbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
   .startbar .muted { flex: 1; min-width: 200px; }
   .sbtn { display: flex; flex-direction: column; gap: 4px; max-width: 230px; }
@@ -148,7 +161,10 @@
 
   <!-- CHOOSE CLASS -->
   <section id="scrClass" class="card hidden">
-    <h2>Choose your class</h2>
+    <div class="bar" style="margin-bottom:4px">
+      <h2 class="title" style="margin:0">Choose your class</h2>
+      <button class="btn lookup" id="btnLookup1">&#x1F50D; Look up a swimmer</button>
+    </div>
     <label for="teacher">Your name</label>
     <select id="teacher"></select>
     <label for="day">Day</label>
@@ -166,6 +182,26 @@
       <button class="btn light" id="btnBackClass">Change class</button>
     </div>
     <div id="swimGroups"></div>
+    <div style="margin-top:18px"><button class="btn lookup" id="btnLookup2">&#x1F50D; Look up a swimmer</button></div>
+  </section>
+
+  <!-- LOOK UP A SWIMMER -->
+  <section id="scrLookup" class="card hidden">
+    <div class="bar">
+      <h2 class="title" style="margin:0">Look up a swimmer</h2>
+      <button class="btn light" id="btnLookupBack">Back</button>
+    </div>
+    <div id="lkSearch">
+      <input type="text" id="lkName" autocomplete="off" placeholder="Type a first name or surname">
+      <div class="list" id="lkList" style="margin-top:10px"></div>
+    </div>
+    <div id="lkResult" class="hidden">
+      <div class="bar" style="margin-top:6px">
+        <div class="title"><b id="lkTitle"></b><span class="muted" id="lkSub"></span></div>
+        <button class="btn light" id="lkAnother">Another swimmer</button>
+      </div>
+      <div id="lkBody"></div>
+    </div>
   </section>
 
   <!-- TIMING -->
@@ -233,7 +269,7 @@ function store(k, v) { try { v === null ? localStorage.removeItem(k) : localStor
 function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function show(id) { ['scrLogin','scrClass','scrSwim','scrTime'].forEach(s => $(s).classList.toggle('hidden', s !== id)); window.scrollTo(0,0); }
+function show(id) { ['scrLogin','scrClass','scrSwim','scrTime','scrLookup'].forEach(s => $(s).classList.toggle('hidden', s !== id)); window.scrollTo(0,0); }
 function fmt(sec) {
   if (sec == null || isNaN(sec)) return '';
   sec = Math.round(sec * 100) / 100;
@@ -774,6 +810,151 @@ async function sendPending() {
 $('btnSendPending').onclick = sendPending;
 setInterval(sendPending, 60000);
 window.addEventListener('online', sendPending);
+
+/* ---------- look up a swimmer ---------- */
+let lkFrom = 'scrClass';
+function allKnownSwimmers() {
+  const info = {};
+  S.data.classes.forEach(r => {
+    if (!info[r.swimmer]) info[r.swimmer] = { label: `${r.level} \u00b7 ${r.day.slice(0, 3)} ${r.start} \u00b7 ${r.venue}`, level: r.level, venue: r.venue };
+  });
+  (S.data.timedSwimmers || []).forEach(n => { if (!info[n]) info[n] = { label: 'Not on a current class list', level: '', venue: '' }; });
+  return info;
+}
+function openLookup(from) {
+  lkFrom = from;
+  $('lkResult').classList.add('hidden'); $('lkSearch').classList.remove('hidden');
+  $('lkName').value = ''; $('lkList').innerHTML = '';
+  show('scrLookup');
+  setTimeout(() => $('lkName').focus(), 50);
+}
+$('btnLookup1').onclick = () => openLookup('scrClass');
+$('btnLookup2').onclick = () => openLookup('scrSwim');
+$('btnLookupBack').onclick = () => show(lkFrom);
+$('lkAnother').onclick = () => openLookup(lkFrom);
+$('lkName').addEventListener('input', () => {
+  const info = allKnownSwimmers();
+  const q = $('lkName').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const box = $('lkList'); box.innerHTML = '';
+  if (!q.length || q.join('').length < 2) return;
+  const hits = Object.keys(info).sort().filter(n => {
+    const words = n.toLowerCase().split(/[\s\-]+/);
+    return q.every(w => words.some(x => x.startsWith(w)));
+  }).slice(0, 10);
+  if (!hits.length) { box.innerHTML = '<p class="muted">No swimmers found with that name.</p>'; return; }
+  hits.forEach(n => {
+    const b = document.createElement('button'); b.className = 'pick';
+    b.innerHTML = `<b>${esc(n)}</b><span class="muted">${esc(info[n].label)}</span>`;
+    b.onclick = () => showSwimmer(n, info[n]);
+    box.appendChild(b);
+  });
+});
+
+function stdForSwimmer(level, ek, venue) {
+  const lv = S.data.levelSwims && S.data.levelSwims[level];
+  const st = lv && lv[ek];
+  if (!st) return null;
+  return venueKey(venue) === 'Godstowe' ? st[1] : st[0];
+}
+
+async function showSwimmer(name, info) {
+  $('lkSearch').classList.add('hidden'); $('lkResult').classList.remove('hidden');
+  $('lkTitle').textContent = name;
+  $('lkSub').textContent = info.label;
+  $('lkBody').innerHTML = '<p class="muted">Loading times\u2026</p>';
+  let j;
+  try { j = await api({ action: 'swimmer', pw: S.pw, swimmer: name }); }
+  catch (e) { $('lkBody').innerHTML = '<p class="err">Couldn\'t load times. Check the Wi-Fi and try again.</p>'; return; }
+  if (!j.ok) { $('lkBody').innerHTML = '<p class="err">' + esc(j.error || 'Something went wrong.') + '</p>'; return; }
+  if (!j.times.length) { $('lkBody').innerHTML = '<p class="muted">No times recorded for this swimmer yet.</p>'; return; }
+
+  // group by swim (and pool, for length swims)
+  const groups = {};
+  j.times.forEach(t => {
+    const ev = S.data.events[t.eventKey];
+    const byPool = ev && (ev[2] > 0 || ev[4] === true);
+    const key = t.eventKey + (byPool ? '|' + t.venue : '');
+    (groups[key] = groups[key] || { ek: t.eventKey, venue: byPool ? t.venue : '', list: [] }).list.push(t);
+  });
+  const order = Object.keys(S.data.events);
+  const keys = Object.keys(groups).sort((a, b) =>
+    order.indexOf(groups[a].ek) - order.indexOf(groups[b].ek) || a.localeCompare(b));
+
+  const body = $('lkBody'); body.innerHTML = '';
+  keys.forEach((k, gi) => {
+    const g = groups[k], ev = S.data.events[g.ek];
+    const pb = Math.min(...g.list.map(t => t.seconds));
+    const latest = g.list[g.list.length - 1];
+    const std = stdForSwimmer(info.level, g.ek, g.venue || info.venue);
+    const pool = g.venue ? (S.data.pools[g.venue] && ev[2] > 0 ? `${g.venue} (${S.data.pools[g.venue]}m pool)` : g.venue) : 'Either pool';
+    const card = document.createElement('div'); card.className = 'swimcard';
+    card.innerHTML =
+      `<button><span class="nm2">${esc(ev[0])}<small>${esc(pool)} \u00b7 ${g.list.length} time${g.list.length > 1 ? 's' : ''} \u00b7 latest ${esc(fmt(latest.seconds))}</small></span>` +
+      `<span class="pbpill">\u2605 PB ${esc(fmt(pb))}</span></button>` +
+      `<div class="detail hidden"></div>`;
+    const det = card.querySelector('.detail');
+    card.querySelector('button').onclick = () => {
+      const open = det.classList.toggle('hidden') === false;
+      if (open && !det.innerHTML) det.innerHTML = historyHtml(g.list, pb, std, 'c' + gi);
+      if (open) wireChart('c' + gi, g.list);
+    };
+    body.appendChild(card);
+  });
+  body.insertAdjacentHTML('beforeend', '<p class="muted">Tap a swim to see every time. \u2605 = personal best' +
+    ' \u00b7 green = standard met \u00b7 KN = from Keep Notes (no date).</p>');
+}
+
+function historyHtml(list, pb, std, id) {
+  let html = list.length >= 2 ? chartSvg(list, pb, std, id) + `<div class="chartcap" id="${id}cap">Higher on the chart = faster. Tap a dot to see the time.</div>` : '';
+  if (std != null) html += `<p class="muted" style="margin:6px 0 0">Target for their level: <b>${esc(fmt(std))}</b></p>`;
+  html += '<table>';
+  let pbMarked = false;
+  list.slice().reverse().forEach(t => {
+    const isPb = !pbMarked && Math.abs(t.seconds - pb) < 0.005; if (isPb) pbMarked = true;
+    const met = std != null && t.seconds <= std + 0.0001;
+    html += `<tr class="${isPb ? 'pb' : ''}"><td>${esc(t.date)}</td>` +
+      `<td class="${met ? 'met' : ''}">${isPb ? '\u2605 ' : ''}${esc(fmt(t.seconds))}${met ? ' \u2713' : ''}</td>` +
+      `<td class="muted">${esc(t.level || '')}</td></tr>`;
+  });
+  return html + '</table>';
+}
+
+// Simple progress line: oldest on the left, newest on the right. Higher on the chart = faster.
+function chartSvg(list, pb, std, id) {
+  const W = 320, H = 150, L = 44, R = 10, T = 12, B = 22;
+  const vals = list.map(t => t.seconds).concat(std != null ? [std] : []);
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  const pad = Math.max((hi - lo) * 0.12, 0.5); lo -= pad; hi += pad;
+  const x = i => L + (list.length === 1 ? 0 : i * (W - L - R) / (list.length - 1));
+  const y = v => T + (v - lo) / (hi - lo) * (H - T - B);        // faster times sit higher
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Times over time" style="display:block;margin-top:8px">`;
+  // recessive grid + axis labels (top = slowest, bottom = fastest)
+  [hi - pad, lo + pad].forEach(v => {
+    svg += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="#E5E7EB" stroke-width="1"/>` +
+           `<text x="${L - 6}" y="${y(v) + 4}" font-size="11" text-anchor="end" fill="#6B7280">${esc(fmt(v))}</text>`;
+  });
+  if (std != null) {
+    svg += `<line x1="${L}" x2="${W - R}" y1="${y(std)}" y2="${y(std)}" stroke="#1E8E5A" stroke-width="1.5" stroke-dasharray="5 4"/>` +
+           `<text x="${L + 4}" y="${y(std) - 4}" font-size="11" fill="#1E8E5A">Target ${esc(fmt(std))}</text>`;
+  }
+  svg += `<polyline fill="none" stroke="#1F2A44" stroke-width="2" stroke-linejoin="round" points="${list.map((t, i) => x(i) + ',' + y(t.seconds)).join(' ')}"/>`;
+  let pbDone = false;
+  list.forEach((t, i) => {
+    const isPb = !pbDone && Math.abs(t.seconds - pb) < 0.005;
+    svg += `<circle cx="${x(i)}" cy="${y(t.seconds)}" r="${isPb ? 6 : 4.5}" fill="${isPb ? '#E0A800' : '#1F2A44'}" stroke="#fff" stroke-width="2"/>` +
+           `<circle data-i="${i}" class="${id}hit" cx="${x(i)}" cy="${y(t.seconds)}" r="14" fill="transparent" style="cursor:pointer"><title>${esc(fmt(t.seconds))} \u00b7 ${esc(t.date)}</title></circle>`;
+    if (isPb) pbDone = true;
+  });
+  svg += `<text x="${L}" y="${H - 6}" font-size="11" fill="#6B7280">${esc(list[0].date)}</text>` +
+         `<text x="${W - R}" y="${H - 6}" font-size="11" text-anchor="end" fill="#6B7280">${esc(list[list.length - 1].date)}</text>`;
+  return svg + '</svg>';
+}
+function wireChart(id, list) {
+  document.querySelectorAll('.' + id + 'hit').forEach(c => {
+    const show1 = () => { const t = list[+c.dataset.i]; const cap = $(id + 'cap'); if (cap) cap.textContent = fmt(t.seconds) + ' \u00b7 ' + t.date + (t.level ? ' \u00b7 ' + t.level : ''); };
+    c.onclick = show1; c.onmouseenter = show1;
+  });
+}
 
 /* ---------- keep the screen awake while timing ---------- */
 let wakeLock = null;
