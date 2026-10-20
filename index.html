@@ -909,7 +909,7 @@ async function showSwimmer(name, info) {
 }
 
 function historyHtml(list, pb, std, id) {
-  let html = list.length >= 2 ? chartSvg(list, pb, std, id) + `<div class="chartcap" id="${id}cap">Higher on the chart = faster. Tap a dot to see the time.</div>` : '';
+  let html = list.length >= 2 ? chartSvg(list, pb, std, id) + `<div class="chartcap" id="${id}cap">Lower on the chart = faster, so a line going down means they're improving. Tap a dot to see the time.</div>` : '';
   if (std != null) html += `<p class="muted" style="margin:6px 0 0">Target for their level: <b>${esc(fmt(std))}</b></p>`;
   html += '<table>';
   let pbMarked = false;
@@ -923,14 +923,14 @@ function historyHtml(list, pb, std, id) {
   return html + '</table>';
 }
 
-// Simple progress line: oldest on the left, newest on the right. Higher on the chart = faster.
+// Simple progress line: oldest on the left, newest on the right. Lower on the chart = faster.
 function chartSvg(list, pb, std, id) {
   const W = 320, H = 150, L = 44, R = 10, T = 12, B = 22;
   const vals = list.map(t => t.seconds).concat(std != null ? [std] : []);
   let lo = Math.min(...vals), hi = Math.max(...vals);
   const pad = Math.max((hi - lo) * 0.12, 0.5); lo -= pad; hi += pad;
   const x = i => L + (list.length === 1 ? 0 : i * (W - L - R) / (list.length - 1));
-  const y = v => T + (v - lo) / (hi - lo) * (H - T - B);        // faster times sit higher
+  const y = v => T + (hi - v) / (hi - lo) * (H - T - B);        // faster times sit lower
   let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Times over time" style="display:block;margin-top:8px">`;
   // recessive grid + axis labels (top = slowest, bottom = fastest)
   [hi - pad, lo + pad].forEach(v => {
